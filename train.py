@@ -16,33 +16,33 @@ from sklearn.metrics import plot_confusion_matrix
 from sklearn import preprocessing
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import SGDClassifier
-from sklearn.tree import ExtraTreeClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 
 # Local imports
 from utils import gen_parameters_from_log_space
 
-search = False
+search = True
 
 ###############################################################################
 # Data preparation
 ###############################################################################
-df = pd.read_csv("processed.csv", index_col="timestamp")
-df = df.drop(columns=['user_name']).copy()
-X  = df.drop(columns=['classe']).copy()
-y  = df.loc[:, 'classe'].copy()
+df_train = pd.read_csv("train.csv", index_col="timestamp")
+df_test = pd.read_csv("test.csv", index_col="timestamp")
+X_train  = df_train.drop(columns=['classe']).copy()
+y_train  = df_train.loc[:, 'classe'].copy()
+X_test  = df_test.drop(columns=['classe']).copy()
+y_test  = df_test.loc[:, 'classe'].copy()
 
 numeric_columns = make_column_selector(dtype_include=np.number)
 
 le = preprocessing.LabelEncoder()
-y = le.fit_transform(y)
+y_train = le.fit_transform(y_train)
+y_test = le.fit_transform(y_test)
 
-X = X.astype('float32')
-
-X_train, X_test, y_train, y_test = (
-    train_test_split(X, y, test_size=0.33, random_state=42)
-)
+X_train = X_train.astype('float32')
+X_test = X_test.astype('float32')
 
 ###############################################################################
 # Training preparation
@@ -60,7 +60,7 @@ pipeline = Pipeline([
         [
             (
                 'imputer', 
-                SimpleImputer(missing_values=np.nan, strategy='mean', verbose=1),
+                SimpleImputer(missing_values=np.nan, strategy='mean', add_indicator=True),
                 numeric_columns
             ),
             
@@ -73,7 +73,7 @@ pipeline = Pipeline([
         ], remainder='drop'
     )),
 
-    ('classifier', ExtraTreeClassifier()),
+    ('classifier', RandomForestClassifier()),
 ], verbose=True)
 
 
@@ -84,7 +84,7 @@ pipeline = Pipeline([
 ###############################################################################
 if search:
 
-    lin_space = np.arange(80, 200, 20, dtype=np.int)
+    lin_space = np.arange(120, 180, 20, dtype=np.int)
 
     log_space = gen_parameters_from_log_space(
             low_value  = 0.001,
@@ -93,18 +93,14 @@ if search:
         )
 
     grid = {
-        'classifier' : [
-            MLPClassifier(),
-            RandomForestClassifier(10),
-            ExtraTreeClassifier(),
-            SGDClassifier(),
-        ]
+        'classifier__n_estimators': lin_space
+        # 'classifier' : [
+        #     MLPClassifier(),
+        #     RandomForestClassifier(),
+        #     ExtraTreeClassifier(),
+        #     SGDClassifier(),
+        # ]
     }
-
-    # With scoring="ovo", computes the average AUC of all possible pairwise 
-    # combinations of classes. Insensitive to class imbalance when 
-    # average='macro'.
-    # Also see: https://stackoverflow.com/a/62471736/1253729
 
     searcher = GridSearchCV(
         estimator          = pipeline, 
@@ -143,7 +139,7 @@ plot_confusion_matrix(
     y_true         = y_test,
     display_labels = labels,
     cmap           = plt.cm.Blues,
-    normalize      = 'true',
+    normalize      = None,
     ax             = ax
 )
 plt.show()
