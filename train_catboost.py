@@ -8,7 +8,6 @@ from sklearn.compose import ColumnTransformer
 from sklearn.compose import make_column_selector
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import f1_score
@@ -21,75 +20,99 @@ from catboost import Pool
 from catboost import cv
 
 
-df = pd.read_csv("processed.csv", index_col="timestamp")
-df = df.drop(columns=['user_name']).copy()
-X  = df.drop(columns=['classe']).copy()
-y  = df.loc[:, 'classe'].copy()
+###############################################################################
+# Data load
+###############################################################################
+
+df_train = pd.read_csv("train.csv", index_col="timestamp")
+X_train  = df_train.drop(columns=['classe']).copy()
+y_train  = df_train.loc[:, 'classe'].copy()
+
+df_test = pd.read_csv("test.csv", index_col="timestamp")
+X_test  = df_test.drop(columns=['classe']).copy()
+y_test  = df_test.loc[:, 'classe'].copy()
 
 le = LabelEncoder()
-y = le.fit_transform(y)
+y_train = le.fit_transform(y_train)
+y_test = le.transform(y_test)
 
-X_train, X_test, y_train, y_test = (
-    train_test_split(X, y, test_size=0.33, random_state=42)
-)
 
-search = False
 
-cv_params = {
-    'iterations': 100, # max number of trees
-    'learning_rate': 1,
-    'random_seed': 42,
-    'logging_level': 'Verbose',
-    'loss_function': 'MultiClass',
-    'task_type': 'CPU',              
+###############################################################################
+# Training / Searching of hyperparameters
+###############################################################################
+
+search = True
+
+train_params = {
+    'iterations'    : 50, # max number of trees
+    'learning_rate' : 0.1,
+    'depth'         : 10,
+    'l2_leaf_reg'   : 1,
+    'random_seed'   : 42,
+    'logging_level' : 'Verbose',
+    'loss_function' : 'MultiClass',
+    'task_type'     : 'CPU',              
 }
 
 print("Training")
-model = CatBoostClassifier(**cv_params)
+model = CatBoostClassifier(**train_params)
 
 
 if search:
 
     search_grid = {
-        'iterations' : [100, 200, 300]
+        'iterations'    : [10, 20],
+        #'learning_rate' : [0.03, 0.1, 0.2, 0.3],
+        #'depth'         : [2,  4, 6, 10],
+        #'l2_leaf_reg'   : [1, 3, 5, 7, 9]
     }
 
     grid_search_result = model.grid_search(
         param_grid = search_grid,
-        X          = X_train.values,
-        y          = y_train.values.ravel(),
+        X          = X_train,
+        y          = y_train,
+        refit      = True,
+        stratified = True,
         verbose    = True
     )
+    print(f"Best params:\n{grid_search_result['params']}")
+    print(pd.DataFrame(grid_search_result['cv_results']))
 
 else:
     train_pool = Pool(X_train, y_train)
     model.fit(train_pool, plot=False)
-    y_pred = model.predict(X_test)
 
-    scorer = make_scorer(
-        score_func = f1_score,
-        average    = "macro" 
-    )
 
-    train_score = scorer(model, X_train, y_train)
-    print(f"Train score: {train_score:.2f}")
+###############################################################################
+# Scoring on test set
+###############################################################################
+y_pred = model.predict(X_test)
 
-    test_score = scorer(model, X_test, y_test)
-    print(f"Test score: {test_score:.2f}")
+scorer = make_scorer(
+    score_func = f1_score,
+    average    = "macro" 
+)
 
-    fig,ax = plt.subplots(1,1, figsize=(4,4))
-    labels = le.inverse_transform(model.classes_)
+train_score = scorer(model, X_train, y_train)
+print(f"Train score: {train_score:.2f}")
 
-    plot_confusion_matrix(
-        estimator      = model,
-        X              = X_test,
-        y_true         = y_test,
-        display_labels = labels,
-        cmap           = plt.cm.Blues,
-        normalize      = 'true',
-        ax             = ax
-    )
-    plt.show()
+test_score = scorer(model, X_test, y_test)
+print(f"Test score: {test_score:.2f}")
+
+fig,ax = plt.subplots(1,1, figsize=(4,4))
+labels = le.inverse_transform(model.classes_)
+
+plot_confusion_matrix(
+    estimator      = model,
+    X              = X_test,
+    y_true         = y_test,
+    display_labels = labels,
+    cmap           = plt.cm.Blues,
+    normalize      = 'true',
+    ax             = ax
+)
+plt.show()
 
 
 print("Finished")
