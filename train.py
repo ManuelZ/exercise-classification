@@ -23,7 +23,7 @@ from sklearn.neural_network import MLPClassifier
 # Local imports
 from utils import gen_parameters_from_log_space
 
-search = True
+search = False
 
 ###############################################################################
 # Data preparation
@@ -73,10 +73,7 @@ pipeline = Pipeline([
         ], remainder='drop'
     )),
 
-    (
-        'classifier',
-        ExtraTreeClassifier()
-    ),
+    ('classifier', ExtraTreeClassifier()),
 ], verbose=True)
 
 
