@@ -29,11 +29,11 @@ search = True
 # Data preparation
 ###############################################################################
 df_train = pd.read_csv("train.csv", index_col="timestamp")
-df_test = pd.read_csv("test.csv", index_col="timestamp")
+df_test  = pd.read_csv("test.csv", index_col="timestamp")
 X_train  = df_train.drop(columns=['classe']).copy()
 y_train  = df_train.loc[:, 'classe'].copy()
-X_test  = df_test.drop(columns=['classe']).copy()
-y_test  = df_test.loc[:, 'classe'].copy()
+X_test   = df_test.drop(columns=['classe']).copy()
+y_test   = df_test.loc[:, 'classe'].copy()
 
 numeric_columns = make_column_selector(dtype_include=np.number)
 
