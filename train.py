@@ -87,10 +87,10 @@ if search:
     lin_space = np.arange(120, 180, 20, dtype=np.int)
 
     log_space = gen_parameters_from_log_space(
-            low_value  = 0.001,
-            high_value = 1,
-            n_samples  = 10
-        )
+        low_value  = 0.001,
+        high_value = 1,
+        n_samples  = 10
+    )
 
     grid = {
         'classifier__n_estimators': lin_space

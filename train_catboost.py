@@ -42,17 +42,17 @@ y_test = le.transform(y_test)
 # Training / Searching of hyperparameters
 ###############################################################################
 
-search = True
+search = False
 
 train_params = {
     'iterations'    : 50, # max number of trees
-    'learning_rate' : 0.1,
+    'learning_rate' : 0.3,
     'depth'         : 10,
     'l2_leaf_reg'   : 1,
     'random_seed'   : 42,
     'logging_level' : 'Verbose',
     'loss_function' : 'MultiClass',
-    'task_type'     : 'CPU',              
+    'task_type'     : 'GPU',              
 }
 
 print("Training")
@@ -62,14 +62,15 @@ model = CatBoostClassifier(**train_params)
 if search:
 
     search_grid = {
-        'iterations'    : [10, 20],
-        #'learning_rate' : [0.03, 0.1, 0.2, 0.3],
-        #'depth'         : [2,  4, 6, 10],
-        #'l2_leaf_reg'   : [1, 3, 5, 7, 9]
+        'iterations'    : [20, 50],
+        'learning_rate' : [0.2, 0.3, 0.4],
+        'depth'         : [4, 6, 10],
+        'l2_leaf_reg'   : [0.5, 1]
     }
 
     grid_search_result = model.grid_search(
         param_grid = search_grid,
+        cv         = StratifiedKFold(n_splits=3),
         X          = X_train,
         y          = y_train,
         refit      = True,
