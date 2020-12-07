@@ -1,7 +1,6 @@
 # Built-in imports
 from datetime import datetime
-from datetime import datetimetimedelta
-from datetime import datetimetimezone
+from datetime import timedelta
 
 # external imports
 import pytz
@@ -11,7 +10,6 @@ import matplotlib.pyplot as plt
 
 # Local imports
 from config import *
-
 
 df = pd.read_csv("WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv", low_memory=False)
 
@@ -42,23 +40,51 @@ feature_columns = BELT_COLS + ARM_COLS + DUMBBELL_COLS + FOREARM_COLS
 columns = feature_columns + ['user_name', 'classe']
 
 df = df.loc[:, df.columns.isin(columns)].copy()
-final_df = pd.DataFrame()
 
-for group_name, subdf in df.groupby('user_name'):
+final_df_train, final_df_test = pd.DataFrame(), pd.DataFrame()
+
+
+###############################################################################
+# Train / Test splitting
+###############################################################################
+for group_name, subdf in df.groupby(['user_name', 'classe']):
+
     print(group_name)
-    new_subdf = subdf.copy()
+
+    train_fraction = 0.7
+    train_size = int(subdf.shape[0] * train_fraction)
+    subdf_train, subdf_test = subdf[:train_size].copy(), subdf[train_size:].copy()
+
+    new_subdf_train = subdf_train.copy()
+    new_subdf_test  = subdf_test.copy()
 
     for col in feature_columns:
-        new_subdf['mean_'+col] = subdf[col].rolling('1s', min_periods=2).mean()
-        new_subdf['var_'+col]  = subdf[col].rolling('1s', min_periods=2).var()
-        new_subdf['std_'+col]  = subdf[col].rolling('1s', min_periods=2).std()
-        new_subdf['max_'+col]  = subdf[col].rolling('1s', min_periods=2).max()
-        new_subdf['min_'+col]  = subdf[col].rolling('1s', min_periods=2).min()
-        new_subdf['amp_'+col]  = subdf[col].rolling('1s', min_periods=2).apply(lambda x: np.abs(np.min(x)) + np.abs(np.max(x)))
-        new_subdf['kurt_'+col] = subdf[col].rolling('1s', min_periods=2).kurt()
-        new_subdf['skew_'+col] = subdf[col].rolling('1s', min_periods=2).skew()
+        new_subdf_train['mean_'+col] = subdf_train[col].rolling('1s', min_periods=2).mean()
+        new_subdf_train['var_'+col]  = subdf_train[col].rolling('1s', min_periods=2).var()
+        new_subdf_train['std_'+col]  = subdf_train[col].rolling('1s', min_periods=2).std()
+        new_subdf_train['max_'+col]  = subdf_train[col].rolling('1s', min_periods=2).max()
+        new_subdf_train['min_'+col]  = subdf_train[col].rolling('1s', min_periods=2).min()
+        new_subdf_train['amp_'+col]  = subdf_train[col].rolling('1s', min_periods=2).apply(lambda x: np.abs(np.min(x)) + np.abs(np.max(x)))
+        new_subdf_train['kurt_'+col] = subdf_train[col].rolling('1s', min_periods=2).kurt()
+        new_subdf_train['skew_'+col] = subdf_train[col].rolling('1s', min_periods=2).skew()
 
-    new_subdf = new_subdf.drop(columns=feature_columns)
-    final_df = pd.concat([final_df, new_subdf], axis=0)
+    for col in feature_columns:
+        new_subdf_test['mean_'+col] = subdf_test[col].rolling('1s', min_periods=2).mean()
+        new_subdf_test['var_'+col]  = subdf_test[col].rolling('1s', min_periods=2).var()
+        new_subdf_test['std_'+col]  = subdf_test[col].rolling('1s', min_periods=2).std()
+        new_subdf_test['max_'+col]  = subdf_test[col].rolling('1s', min_periods=2).max()
+        new_subdf_test['min_'+col]  = subdf_test[col].rolling('1s', min_periods=2).min()
+        new_subdf_test['amp_'+col]  = subdf_test[col].rolling('1s', min_periods=2).apply(lambda x: np.abs(np.min(x)) + np.abs(np.max(x)))
+        new_subdf_test['kurt_'+col] = subdf_test[col].rolling('1s', min_periods=2).kurt()
+        new_subdf_test['skew_'+col] = subdf_test[col].rolling('1s', min_periods=2).skew()
 
-final_df.to_csv("processed.csv")
+    new_subdf_train = new_subdf_train.drop(columns=feature_columns)
+    final_df_train = pd.concat([final_df_train, new_subdf_train], axis=0)
+    final_df_train = final_df_train.drop(columns=['user_name']).copy()
+
+    new_subdf_test = new_subdf_test.drop(columns=feature_columns)
+    final_df_test  = pd.concat([final_df_test, new_subdf_test], axis=0)
+    final_df_test = final_df_test.drop(columns=['user_name']).copy()
+
+final_df_train.to_csv("train.csv")
+final_df_test.to_csv("test.csv")
